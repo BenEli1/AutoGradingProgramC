@@ -1,0 +1,17 @@
+Error in:exec a.out: No such file or directory
+Error in:exec: Permission denied
+/home/baneli/CLionProjects/untitled1/files/students/Compilation_Error_gets_10/error1.c: In function ‘main’:
+/home/baneli/CLionProjects/untitled1/files/students/Compilation_Error_gets_10/error1.c:5:5: error: expected declaration or statement at end of input
+    5 |     printf("dfg");
+      |     ^~~~~~
+Error in:exec a.out: No such file or directory
+Error in:exec: Permission denied
+Error in:exec a.out: No such file or directory
+Error in:exec: Permission denied
+Error in:exec: Permission denied
+Error in:exec a.out: No such file or directory
+Error in:exec: Permission denied
+Error in:exec a.out: No such file or directory
+Error in:exec: Permission denied
+ile or directory
+Error in:exec: Permission denied
