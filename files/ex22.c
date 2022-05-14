@@ -31,21 +31,61 @@ int readLineFromConf(char *buffer, size_t size, int fd) {
     buffer[cnt] = 0;
     return 0;
 }
+
 //compiles student file using gcc
 int compileFile(char *filePath) {
     pid_t pid;
-    int status,ret_code;
+    int status, ret_code;
     pid = fork();
     if (pid == 0) {
         char *args[] = {"gcc", filePath, NULL};
-        ret_code=execv("gcc",args);
-        if(ret_code<0){
+        if (execv("gcc", args) < 0) {
             perror("Error in: exec");
             return -1;
         }
     } else {
         waitpid(pid, &status, 0);
-        if (status< 0) {
+        if (status < 0) {
+            return -1;
+        }
+    }
+    return 1;
+}
+
+int executeAOut(char *filePath) {
+    pid_t pid;
+    int status, ret_code;
+    pid = fork();
+    if (pid == 0) {
+        perror(filePath);
+        ret_code = execvp(filePath, NULL);
+        if (ret_code < 0) {
+            perror("Error in: exec");
+            return -1;
+        }
+    } else {
+        waitpid(pid, &status, 0);
+        if (status < 0) {
+            return -1;
+        }
+    }
+    return 1;
+}
+
+int executeCompOut(char *filePath,char *tempOutput,char* outputFilePath) {
+    pid_t pid;
+    int status, ret_code;
+    pid = fork();
+    if (pid == 0) {
+        char *args[] = {tempOutput, outputFilePath, NULL};
+        ret_code = execvp(filePath, args);
+        if (ret_code < 0) {
+            perror("Error in: exec");
+            return -1;
+        }
+    } else {
+        waitpid(pid, &status, 0);
+        if (status < 0) {
             return -1;
         }
     }
@@ -57,9 +97,9 @@ int main(int argc, char *argv[]) {
     pid_t pid;
     int waited, status, ret_code;
     int confFileRead;
-    int score=0;
-    char stringScore[50]={};
-    int in, out, error,results;//fd for 0 1 2 and results.csv
+    int score = 0;
+    char stringScore[50] = {};
+    int in, out, error, results;//fd for 0 1 2 and results.csv
     //check number of args
     if (argc < 2) {
         exit(-1);
@@ -75,6 +115,7 @@ int main(int argc, char *argv[]) {
     char mainFolderPath[500] = {0};
     char inputFilePath[500] = {0};
     char outputFilePath[500] = {0};
+    char tempOutput[500] = {0};
 
     readLineFromConf(mainFolderPath, sizeof mainFolderPath, confFileRead);
     readLineFromConf(inputFilePath, sizeof inputFilePath, confFileRead);
@@ -83,11 +124,10 @@ int main(int argc, char *argv[]) {
     close(confFileRead);
 
 
-
-
     char s1[500] = {};
     char s2[500] = {};
     char s3[500] = {};
+    char s4[500] = {};
 
     chdir("..");
     chdir("files");//#TODO delete this shit
@@ -106,6 +146,9 @@ int main(int argc, char *argv[]) {
         strcat(s3, outputFilePath);
         strcpy(outputFilePath, s3);
     }
+    strcat(getcwd(s4, 150), "/");
+    strcat(s4, "output.txt");
+    strcpy(tempOutput, s4);
 
     //checking that the paths indeed are legit
     struct stat statbuf;
@@ -138,7 +181,7 @@ int main(int argc, char *argv[]) {
     // replace standard input with input file
     dup2(in, 0);
 
-    out = open("output.txt", O_RDWR | O_CREAT, 0777);
+    out = open("output.txt", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWGRP | S_IWUSR);
     if (out == -1) {
         perror("Error in: open");
         exit(-1);
@@ -152,6 +195,8 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     dup2(error, 2);
+    close(in);
+    close(out);
     results = open("results.csv", O_CREAT | O_WRONLY, 0777);
     if (results == -1) {
         perror("Error in: open");
@@ -165,10 +210,10 @@ int main(int argc, char *argv[]) {
     struct dirent *dit2;
     int flag = 0;
     char s[250];
-    int readFile;
     char mainFolderPath2[500] = {0};
     char mainFolderPath3[500] = {0};
     char mainFolderPath4[500] = {0};
+    char mainFolderPath5[500] = {0};
     if ((dip = opendir(mainFolderPath)) == NULL) {
         perror("opendir");
         return 0;
@@ -186,122 +231,56 @@ int main(int argc, char *argv[]) {
             if (strlen(dit2->d_name) > 2 && dit2->d_name[strlen(dit2->d_name) - 2] == '.' &&
                 dit2->d_name[strlen(dit2->d_name) - 1] == 'c') {
                 flag = 1;
-                pid = fork();
-                if (pid == 0) { /* Child */
-                    strcpy(mainFolderPath3,mainFolderPath2);
-                    strcat(mainFolderPath3,"/");
-                    strcat(mainFolderPath3,dit2->d_name);
-                    chmod(mainFolderPath3, 0777);
-                    char *args1[] = {"gcc",mainFolderPath3,"-o","a.out", NULL};
-                    ret_code = execvp("gcc", args1);
-                    if (ret_code == -1) {
-                        perror("Error in:exec");
-                        exit(-1);
-                    }
-                } else { /* Parent */
-                    waitpid(pid, &status, 0);
-                    if (status < 0) {
-                        score = 10;
-                        strcpy(s,"");
-                        strcpy(s,dit2->d_name);
-                        strcat(s,",");
-                        sprintf(stringScore,"%d",score);
-                        strcat(s,stringScore);
-                        strcat(s,",");
-                        strcat(s,"COMPILATION_ERROR\n");
-                        write(results, s, 150);
-                        perror("Error in : gcc");
-                        break;
-                    }
-                    if (flag == 0) {
-                        score = 0;
-                        write(results, ("%d", score), 150);
-                        break;
-                    }
-                    flag = 0;
-                    pid = fork();
-                    if (pid == 0) { /* Child */
-                        strcpy(mainFolderPath4,mainFolderPath2);
-                        strcat(mainFolderPath4,"/");
-                        strcat(mainFolderPath4,"a.out");
-                        ret_code = execvp(mainFolderPath4, NULL);
-                        if (ret_code == -1) {
-                            perror("Error in:exec a.out");
-                            exit(-1);
-                        }
-                    } else { /* Parent */
-                        waitpid(pid, &status, 0);
-                        if (status < 0) {
-                            perror("Error in : ex21");
-                        }
-                    }
-                    pid = fork();
-                    if (pid == 0) { /* Child */
-                        char *args2[] = {"./comp.out", "output.txt", outputFilePath, NULL};
-                        ret_code = execv(mainFolderPath2, args2);
-                        if (ret_code == -1) {
-                            perror("Error in:exec");
-                            exit(-1);
-                        }
-                    } else { /* Parent */
-                        waitpid(pid, &status, 0);
-                        if (waited < 0) {
-                            perror("Error in : ex21");
-                        }
-                        if (status == 1) {
-                            score = 100;
-                            strcpy(s,"");
-                            strcpy(s,dit2->d_name);
-                            strcat(s,",");
-                            sprintf(stringScore,"%d",score);
-                            strcat(s,stringScore);
-                            strcat(s,",");
-                            strcat(s,"EXCELLENT\n");
-                            write(results, s, 150);
-                        }
-                        if (status == 2) {
-                            score = 50;
-                            strcpy(s,"");
-                            strcpy(s,dit2->d_name);
-                            strcat(s,",");
-                            sprintf(stringScore,"%d",score);
-                            strcat(s,stringScore);
-                            strcat(s,",");
-                            strcat(s,"WRONG\n");
-                            write(results, s, 150);
-                        }
-                        if (status == 3) {
-                            score = 75;
-                            strcpy(s,"");
-                            strcpy(s,dit2->d_name);
-                            strcat(s,",");
-                            sprintf(stringScore,"%d",score);
-                            strcat(s,stringScore);
-                            strcat(s,",");
-                            strcat(s,"SIMILAR\n");
-                            write(results, s, 150);
-                        }
+                strcpy(mainFolderPath3, mainFolderPath2);
+                strcat(mainFolderPath3, "/");
+                strcat(mainFolderPath3, dit2->d_name);
+                ret_code = compileFile(mainFolderPath3);
+                if (ret_code < 0) {
+                    score = 10;
+                    sprintf(stringScore, "%s,%d,%s", dit->d_name,score,"COMPILATION_ERROR\n");
+                    write(results, stringScore, 150);
+                    perror("Error in : gcc");
+                    break;
+                }
+                strcpy(mainFolderPath4, mainFolderPath2);
+                strcat(mainFolderPath4, "/");
+                strcat(mainFolderPath4, "a.out");
+                status = executeAOut(mainFolderPath4);
+                strcpy(mainFolderPath5, mainFolderPath2);
+                strcat(mainFolderPath5, "/");
+                strcat(mainFolderPath5, "comp.out");
+                status = executeCompOut(mainFolderPath5, tempOutput, outputFilePath);
+                if (status == 1) {
+                    score = 100;
+                    sprintf(stringScore, "%s,%d,%s", dit->d_name,score,"EXCELLENT\n");
+                    write(results, stringScore, 150);
 
-                        break;
-                    }
-                    if (closedir(dip2) == -1) {
-                        perror("closedir");
-                        return 0;
-                    }
+                }
+                if (status == 2) {
+                    score = 50;
+                    sprintf(stringScore, "%s,%d,%s", dit->d_name,score,"WRONG\n");
+                    write(results, stringScore, 150);
+                }
+                if (status == 3) {
+                    score = 75;
+                    sprintf(stringScore, "%s,%d,%s", dit->d_name,score,"SIMILAR\n");
+                    write(results, stringScore, 150);
                 }
             }
         }
-    }
+                if (closedir(dip2) == -1) {
+                    perror("closedir");
+                    return 0;
+                }
+            }
 
-    if (closedir(dip) == -1) {
-        perror("closedir");
-        return 0;
-    }
+if (closedir(dip)== -1) {
+perror("closedir");
+return 0;
+}
 
 // close unused file descriptors
-    close(in);
-    close(out);
-    close(error);
-    close(results);
-    exit(0);
+close(error);
+close(results);
+exit(0);
 }
