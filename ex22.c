@@ -215,8 +215,16 @@ int main(int argc, char *argv[]) {
     }
     chdir(studentPath);
     while ((dit = readdir(dip)) != NULL) {
-        if (dit->d_name[0] == '.') {
+//        if (dit->d_name[0] == '.') {
+//            continue;
+//        }
+        if (strcmp(dit->d_name,".")==0|| strcmp(dit->d_name,"..")==0) {
             continue;
+        }
+        if (stat(dit->d_name, &statbuf) >= 0) {
+            if (!S_ISDIR(statbuf.st_mode)) {
+                continue;
+            }
         }
         if ((dip2 = opendir(dit->d_name)) == NULL) {
             perror("opendir");
