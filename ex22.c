@@ -31,12 +31,16 @@ int readLineFromConf(char *buffer, size_t size, int fd) {
 //compiles student file using gcc
 int compileFile(char *filePath) {
     pid_t pid;
-    int status, ret_code;
+    int status;
     pid = fork();
+    if(pid<0) {
+        perror("Error in: fork");
+        return -1;
+    }
     if (pid == 0) {
         char *args[] = {"gcc", filePath, NULL};
         if (execvp("gcc", args) < 0) {
-            perror("Error in: exec");
+            perror("Error in: execvp");
             return -1;
         }
     } else {
@@ -53,10 +57,15 @@ int executeAOut(char *filePath) {
     pid_t pid;
     int status, ret_code;
     pid = fork();
+    if(pid<0) {
+        perror("Error in: fork");
+        return -1;
+    }
     if (pid == 0) {
-        ret_code = execvp(filePath, NULL);
+        char *args[] = {NULL};
+        ret_code = execvp(filePath, args);
         if (ret_code < 0) {
-            perror("Error in: exec");
+            perror("Error in: execvp");
             return -1;
         }
     } else {
@@ -72,11 +81,15 @@ int executeCompOut(char *filePath, char *tempOutput, char *outputFilePath) {
     pid_t pid;
     int status2, ret_code;
     pid = fork();
+    if(pid<0) {
+        perror("Error in: fork");
+        return -1;
+    }
     if (pid == 0) {
         char *args[] = {filePath, tempOutput, outputFilePath, NULL};
         ret_code = execvp(filePath, args);
         if (ret_code < 0) {
-            perror("Error in: execvp comp.out");
+            perror("Error in: execvp");
             return -1;
         }
     } else {
@@ -94,7 +107,7 @@ int executeCompOut(char *filePath, char *tempOutput, char *outputFilePath) {
 
 int main(int argc, char *argv[]) {
     int status, ret_code,confFileRead,score=0,in, out, error, results;//fd for 0 1 2 and results.csv
-    char stringScore[150] = {};
+    char stringScore[500] = {};
     //check number of args
     if (argc < 2) {
         exit(-1);
@@ -145,15 +158,11 @@ int main(int argc, char *argv[]) {
     strcat(tempOutput, "/output.txt");
     strcpy(compOut, mainFolderPath);
     strcat(compOut, "/comp.out");
-//    strcat(getcwd(s5, 150), "/");
-//    strcat(s5, "comp.out");
-//    strcpy(compOut, s5);
 
     //checking that the paths indeed are legit
     struct stat statbuf;
     if (stat(studentPath, &statbuf) >= 0) {
         if (!S_ISDIR(statbuf.st_mode)) {
-            perror("Not a valid directory");
             write(1, "Not a valid directory\n", 23);
             exit(-1);
         }
@@ -196,16 +205,10 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-
-    DIR *dip;
-    DIR *dip2;
-    struct dirent *dit;
-    struct dirent *dit2;
+    //dip for students folder,dip2 for each student
+    DIR *dip,*dip2;
+    struct dirent *dit,*dit2;
     int flag = 0;
-    char s[250];
-    char mainFolderPath2[500] = {0};
-    char mainFolderPath3[500] = {0};
-    char mainFolderPath4[500] = {0};
     if ((dip = opendir(studentPath)) == NULL) {
         perror("opendir");
         return 0;
@@ -215,9 +218,6 @@ int main(int argc, char *argv[]) {
         if (dit->d_name[0] == '.') {
             continue;
         }
-//        strcpy(mainFolderPath2, studentPath);
-//        strcat(mainFolderPath2, "/");
-//        strcat(mainFolderPath2, dit->d_name);
         if ((dip2 = opendir(dit->d_name)) == NULL) {
             perror("opendir");
             return 0;
@@ -247,19 +247,9 @@ int main(int argc, char *argv[]) {
                 }
                 // replace standard output with output fi le
                 dup2(out, 1);
-//                in = open(inputFilePath, O_RDONLY, 0777);
-//                if (in == -1) {
-//                    perror("Error in: open");
-//                    exit(-1);
-//                }
-//                // replace standard input with input file
-//                dup2(in, 0);
                 lseek(0, 0, SEEK_SET);
                 status = executeAOut("./a.out");
                 remove("a.out");
-//                strcpy(mainFolderPath5, mainFolderPath2);
-//                strcat(mainFolderPath5, "/");
-//                strcat(mainFolderPath5, "comp.out");
                 status = executeCompOut(compOut, tempOutput, outputFilePath);
                 if (status == 1) {
                     score = 100;
@@ -287,14 +277,14 @@ int main(int argc, char *argv[]) {
         flag = 0;
         if (closedir(dip2) == -1) {
             perror("closedir");
-            return 0;
+            exit(-1);
         }
         chdir("..");
     }
 
     if (closedir(dip) == -1) {
         perror("closedir");
-        return 0;
+        exit(-1);
     }
     remove(tempOutput);
 
