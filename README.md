@@ -1,5 +1,6 @@
 # AutoGradingProgramC
 Line Argument - recieves config file , which includes 3 lines -
+
 1.Folder to check location.
 2.Input file focation.
 3.Expected output file location.
